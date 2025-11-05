@@ -8,11 +8,11 @@ library("pheatmap")
 library("dplyr")
 
 #Import dataset into Environment. This can be a file prepared in Excel. (I will try later, to get also a file where the missing values are not yet removed)
-read_excel("C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/Test runs/Run 3 DIA-NN/20240826_all data.xlsx",
+read_excel("C:/Users/data.xlsx",
            sheet = "Sheet4",
            col_names = TRUE)
 #Rename the data set. This term "res" can be replaced with anything that comes to mind, there is no function here.
-res <- read_excel("C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/Test runs/Run 3 DIA-NN/20240826_all data.xlsx",
+res <- read_excel("C:/Users/data.xlsx",
                   sheet = "Sheet4",
                   col_names = TRUE)
 view(res) 
@@ -39,7 +39,7 @@ sdd <- data.frame(sdd)
 view(sdd)
 
 #export the data as an excel file
-write_xlsx(sdd,"C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/Test runs/Run 3 DIA-NN/20240826_top50IMP.xlsx", col_names = TRUE)
+write_xlsx(sdd,"C:/Users/IMP.xlsx", col_names = TRUE)
 
 #Open the new "imputed" data set. Before check that the removed column 1 (gene/protein names) is added back into the file.
 #Create annotation for control or PACS
