@@ -8,10 +8,10 @@ library("writexl")
 
 #Before importing the data, make sure to have the columns labelled uniform: Genes (or Proteins), pvalue and log2FC
 #Data should include Log2FC and -Log10pvalue (adjusted). Import data and the correct sheet (import 2, one is used to set the row names)
-re <- read_excel("C:/Users/med-an7/Work Folders/Desktop/Collab/Fredrik/MassSpec/20240222/VPproteingroups.xlsx",
+re <- read_excel("C:/Users/VPproteingroups.xlsx",
                   sheet = "Immune",
                   col_names = TRUE)
-res <- read_excel("C:/Users/med-an7/Work Folders/Desktop/Collab/Fredrik/MassSpec/20240222/VPproteingroups.xlsx",
+res <- read_excel("C:/Users/VPproteingroups.xlsx",
                         sheet = "Immune",
                         col_names = TRUE)
 view(re)
@@ -58,5 +58,6 @@ print(p4)  # Print the plot
 p4 + labs(x = "Log2FC", y = "-Log10 q-value", title = "Immune proteins") + guides(color = guide_legend(override.aes = list(size=6)))
 
  #export the up- and downregulated proteins as defined at row 23
-write_xlsx(rer, "C:/Users/med-an7/Work Folders/Desktop/Collab/Fredrik/MassSpec/20240222/Figures/Immune.xlsx", col_names = TRUE)
+write_xlsx(rer, "C:/Users/VP.xlsx", col_names = TRUE)
+
 
