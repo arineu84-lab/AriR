@@ -48,7 +48,7 @@ noi <- missForest::missForest(vert, verbose = TRUE)
 
 
 library(readxl)
-X20240826_IMP <- read_excel("C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/Test runs/Run 3 DIA-NN/20240826_IMP.xlsx", 
+X20240826_IMP <- read_excel("C:/Users/IMP.xlsx", 
                             col_types = c("text", "numeric", "numeric", 
                                           "numeric", "numeric", "numeric", 
                                           "numeric", "numeric", "numeric", 
@@ -86,3 +86,4 @@ pheatmap(sdd, scale = "row",
          angle_col = 45,
          fontsize = 5,
          color = heatmap_colors)
+
