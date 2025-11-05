@@ -9,11 +9,11 @@ library("dplyr")
 library("ggplot2")
 
 #Import dataset into Environment. This can be a file prepared in Excel. (I will try later, to get also a file where the missing values are not yet removed)
-read_excel("C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/MS runs/Runs 3 and 4 DIA-NN combined/Combined search/raw_data/valid_raw.xlsx",
+read_excel("C:/Users/valid_raw.xlsx",
            sheet = "Sheet1",
            col_names = TRUE)
 #Rename the data set. This term "res" can be replaced with anything that comes to mind, there is no function here.
-res <- read_excel("C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/MS runs/Runs 3 and 4 DIA-NN combined/Combined search/raw_data/valid_raw.xlsx",
+res <- read_excel("C:/Users/valid_raw.xlsx",
                   sheet = "Sheet1",
                   col_names = TRUE)
 view(res) 
@@ -67,6 +67,7 @@ ggplot(pca_scores_with_group, aes(x = PC1, y = PC2, color = Group)) +
   labs(title = "PCA Plot: PACS vs Control", x = "PC 1", y = "PC2") +
   theme_minimal() +
   scale_color_manual(values = c("PACS" = "cyan", "Control" = "magenta"))  
+
 
 
 
