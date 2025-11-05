@@ -1,0 +1,304 @@
+---
+title: "20241203 PACS MS analysis"
+output: html_notebook
+---
+
+```{r Libraries}
+library(readxl)       # For reading Excel files
+library(limma)        # For differential expression analysis
+library(ggplot2)      # For visualization
+library(dplyr)        # For data manipulation
+library(impute)       # For using imputeLCMD
+library(imputeLCMD)   # For proteomics-specific imputation
+library(tidyr)        # For reshaping data
+library(janitor)      # For cleaning up column names
+```
+
+```{r Load data}
+# Update file paths to be dynamic if necessary (e.g., use file.choose())
+protein_data_path <- "~/Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Comparing R Excel and Perseus/2024 raw data.xlsx"
+metadata_path <- "~/Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Comparing R Excel and Perseus/Sample code.xlsx"
+
+# Load the datasets
+df <- read_excel(protein_data_path, sheet = "raw data 2024")
+df2 <- read_excel(metadata_path)
+
+#Remove MHA because outlier
+df <- df %>% select(-MHA)
+
+View(df2)
+```
+
+```{r Inspect and clean data}
+# Clean column names for both data sets
+colnames(df2) <- make.names(colnames(df2), unique = TRUE)
+colnames(df) <- make.names(colnames(df), unique = TRUE)
+
+# Check column names
+# Verify the actual column names in the data
+print(colnames(df2))
+
+# Clean column names
+# Simplify column names using the janitor package
+library(janitor)
+df2 <- df2 %>% clean_names()
+
+# Verify the cleaned column names
+# Check the cleaned column names to use in the select function
+print(colnames(df2))
+print(df2)
+
+# Extract the first row as column names (if applicable)
+colnames(df2) <- as.character(df2[1, ])
+df2 <- df2[-1, ]  # Remove the first row if it's the header
+
+# Clean column names again
+df2 <- df2 %>% clean_names()
+# Verify the updated column names
+print(colnames(df2))
+
+# Extract metadata columns
+metadata <- df2 %>%
+  select(sample_id, sex, age_group, condition, severity) %>%
+  rename(
+    SampleID = sample_id,
+    Sex = sex,
+    AgeGroup = age_group,
+    Condition = condition,
+    Severity = severity
+  )
+
+# Preview the metadata
+head(metadata)
+```
+
+```{r Rename Controls}
+# Adjust this range based on your data set structure
+protein_data <- df[, 6:ncol(df)]  
+
+#Rename controls
+library(dplyr)
+
+# Rename columns that do not start with "L"
+protein_data <- protein_data %>%
+  rename_with(
+    .fn = function(x) {
+      # Identify columns that do not start with "L"
+      non_L_cols <- which(!startsWith(x, "L"))
+      
+      # Generate sequential names skipping C101
+      new_names <- seq_along(non_L_cols) + 99  # Start from 100 (C100)
+      new_names <- ifelse(new_names >= 101, new_names + 1, new_names) # Skip 101
+      x[non_L_cols] <- paste0("C", new_names)
+      
+      x
+    }
+  )
+
+# Ensure SampleID uniqueness
+rownames(metadata) <- metadata$SampleID
+```
+
+```{r Log2 transform data}
+# Apply log2 transformation (adding 1 to avoid log(0))
+log_data <- log2(protein_data + 1)
+
+##Step3.5 If want to filter is many missing in a group
+# Filter proteins with too many missing values in any group
+
+# Standardize column names in protein_data and SampleID in metadata
+colnames(protein_data) <- gsub("\\.", "_", colnames(protein_data))
+metadata$SampleID <- gsub("\\.", "_", metadata$SampleID)
+
+# Subset metadata and protein_data to retain only matched samples
+matched_samples <- intersect(colnames(protein_data), metadata$SampleID)
+metadata <- metadata[metadata$SampleID %in% matched_samples, ]
+protein_data <- protein_data[, matched_samples]
+
+# Reorder metadata to match the order of protein_data columns
+metadata <- metadata[match(colnames(protein_data), metadata$SampleID), ]
+
+# Filter proteins based on the proportion of missing values in each group
+missing_threshold <- 0.5  # Set the threshold for missingness
+
+valid_proteins <- apply(protein_data, 1, function(x) {
+  group_missingness <- tapply(is.na(x), metadata$Severity, mean, na.rm = TRUE)
+  all(group_missingness <= missing_threshold)
+})
+
+# Subset protein_data to retain only valid proteins
+filtered_protein_data <- protein_data[valid_proteins, ]
+
+log_data <- log2(filtered_protein_data + 1)
+
+#####End 3.5 filtering
+```
+
+
+```{r Handle missing values}
+# Handle Missing Values with Perseus-Like Imputation
+# Apply MinProb method (Perseus-like)
+log_data_imputed <- impute.MinProb(as.matrix(log_data), q = 0.01)
+
+# Quality Control and optional Normalization
+
+# Boxplot after imputation
+boxplot(log_data_imputed, las = 2, main = "Boxplot After Imputation")
+
+# Normalize the data using quantile normalization
+log_data_normalized <- normalizeBetweenArrays(log_data_imputed, method = "quantile")
+
+# Boxplot after normalization to check effects
+boxplot(log_data_normalized, las = 2, main = "Boxplot After Normalization")
+
+# log_data_imputed <- log_data_normalized
+```
+
+```{r Limma analysis}
+# Prepare for Limma Analysis
+# Transpose protein data: samples as rows, proteins as columns
+log_data_imputed <- t(log_data_imputed)
+
+# Ensure sample IDs in protein data and metadata match
+# Standardize sample IDs by replacing '.' with '_'
+rownames(log_data_imputed) <- gsub("\\.", "_", rownames(log_data_imputed))
+metadata$SampleID <- gsub("\\.", "_", metadata$SampleID)
+
+# Verify alignment
+cat("Aligning metadata with protein data...\n")
+matched_samples <- intersect(rownames(log_data_imputed), metadata$SampleID)
+
+# Subset and reorder to match
+metadata <- metadata[metadata$SampleID %in% matched_samples, ]
+log_data_imputed <- log_data_imputed[rownames(log_data_imputed) %in% matched_samples, ]
+
+# Reorder metadata to match protein data
+metadata <- metadata[match(rownames(log_data_imputed), metadata$SampleID), ]
+
+# Verify alignment again
+if (!all(rownames(log_data_imputed) == metadata$SampleID)) {
+  stop("Sample IDs in metadata and protein data still do not match after alignment!")
+}
+
+```
+
+```{r Several test for sensitivity}
+# Ensure row names of log_data_imputed match metadata row names
+if (!all(rownames(log_data_imputed) == metadata$SampleID)) {
+  stop("Sample IDs in metadata and protein data do not match!")
+}
+
+##Sensitivity
+#Set all non_severe to healthy
+#metadata$Severity <- ifelse(metadata$Severity=="non_severe", "healthy", metadata$Severity)
+
+# Create a design matrix based on Severity groups
+group <- factor(metadata$Severity, levels = c("healthy", "non_severe", "severe"))
+design <- model.matrix(~0 + group)
+colnames(design) <- levels(group)
+
+##Sensitivity
+# Set all non_severe to healthy
+# metadata$Severity <- ifelse(metadata$Severity=="non_severe", "healthy", metadata$Severity)
+# group <- factor(metadata$Severity, levels = c("healthy", "severe"))
+# design <- model.matrix(~0 + group)
+# colnames(design) <- levels(group)
+
+
+# Limma Differential Expression Analysis
+# Fit the linear model
+# Ensure row names of design match the row names of log_data_imputed
+rownames(design) <- rownames(log_data_imputed)
+
+# Verify alignment
+if (!all(rownames(design) == rownames(log_data_imputed))) {
+  stop("Row names of the design matrix and protein data do not match!")
+}
+
+# Transpose log_data_imputed to make samples columns and proteins rows
+log_data_imputed <- t(log_data_imputed)
+
+# Ensure the design matrix rows match the sample column names of the transposed data
+if (!all(colnames(log_data_imputed) == rownames(design))) {
+  stop("Sample names in log_data_imputed and design matrix do not match!")
+}
+
+# Fit the linear model
+fit <- lmFit(log_data_imputed, design)
+
+# Define contrasts for comparisons
+contrast_matrix <- makeContrasts(
+  Severe_vs_Healthy = severe - healthy,
+  Non_Severe_vs_Healthy = non_severe - healthy,
+  Severe_vs_Non_Severe = severe - non_severe,
+  levels = design
+)
+
+# Sensitivity without non-severe
+# contrast_matrix <- makeContrasts(
+# Severe_vs_Healthy = severe - healthy,
+# levels = design
+#)
+```
+
+```{r Volcanoplot}
+# Apply contrasts and compute statistics
+fit2 <- contrasts.fit(fit, contrast_matrix)
+fit2 <- eBayes(fit2)
+
+# Extract Results
+results_severe_vs_healthy <- topTable(fit2, coef = "Severe_vs_Healthy", adjust.method = "BH", number = Inf)
+results_non_severe_vs_healthy <- topTable(fit2, coef = "Non_Severe_vs_Healthy", adjust.method = "BH", number = Inf)
+results_severe_vs_non_severe <- topTable(fit2, coef = "Severe_vs_Non_Severe", adjust.method = "BH", number = Inf)
+
+# Visualize Results with Volcano Plots
+# Define thresholds for significance
+logFC_threshold <- 1
+pvalue_threshold <- 0.05
+
+# Function to create a volcano plot
+create_volcano_plot <- function(results, comparison_name) {
+  results$Significant <- "Not Significant"
+  results$Significant[results$adj.P.Val < pvalue_threshold & abs(results$logFC) > logFC_threshold] <- "Significant"
+  
+  ggplot(results, aes(x = logFC, y = -log10(adj.P.Val), color = Significant)) +
+    geom_point() +
+    scale_color_manual(values = c("grey", "red")) +
+    theme_minimal() +
+    labs(title = paste("Volcano Plot:", comparison_name),
+         x = "Log2 Fold Change",
+         y = "-Log10 Adjusted P-value") +
+    geom_hline(yintercept = -log10(pvalue_threshold), linetype = "dashed") +
+    geom_vline(xintercept = c(-logFC_threshold, logFC_threshold), linetype = "dashed")
+}
+
+# Generate volcano plots
+volcano_severe_vs_healthy <- create_volcano_plot(results_severe_vs_healthy, "Severe vs Healthy")
+volcano_non_severe_vs_healthy <- create_volcano_plot(results_non_severe_vs_healthy, "Non-Severe vs Healthy")
+volcano_severe_vs_non_severe <- create_volcano_plot(results_severe_vs_non_severe, "Severe vs Non-Severe")
+
+# Print volcano plots
+print(volcano_severe_vs_healthy)
+print(volcano_non_severe_vs_healthy)
+print(volcano_severe_vs_non_severe)
+```
+
+```{r PCA plot}
+# Enhanced PCA Plot
+pca <- prcomp(t(log_data_imputed))
+pca_data <- as.data.frame(pca$x)
+pca_data$Condition <- metadata$Severity  # Add condition labels
+
+ggplot(pca_data, aes(x = PC1, y = PC2, color = Condition)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(
+    title = "PCA Plot of Samples",
+    x = paste0("PC1 (", round((pca$sdev[1]^2 / sum(pca$sdev^2)) * 100, 2), "% Variance)"),
+    y = paste0("PC2 (", round((pca$sdev[2]^2 / sum(pca$sdev^2)) * 100, 2), "% Variance)")
+  ) +
+  theme(legend.position = "right")
+
+# End of Script
+```
+

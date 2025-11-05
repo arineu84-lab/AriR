@@ -1,0 +1,185 @@
+---
+title: "20241202_PACS"
+output: html_notebook
+---
+```{r}
+# Load necessary library
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+
+X2024_raw_data <- read_excel("Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Comparing R Excel and Perseus/2024 raw data.xlsx", sheet = "raw data 2024")
+# View the initial data set
+View(X2024_raw_data)
+```
+```{r}
+# Prepare data set and rename numeric columns
+num_data <- X2024_raw_data[, 6:54]
+new_col_names <- c(
+  "non_severe", "non_severe", "non_severe", "healthy", "non_severe", 
+  "non_severe", "non_severe", "healthy", "non_severe", "healthy", "non_severe", 
+  "healthy", "non_severe", "non_severe", "non_severe", "healthy", 
+  "non_severe", "non_severe", "non_severe", "healthy", "non_severe", 
+  "non_severe", "non_severe", "healthy", "non_severe", "non_severe", 
+  "non_severe", "non_severe", "non_severe", "severe", "severe", 
+  "healthy", "non_severe", "non_severe", "severe", "non_severe", 
+  "healthy", "non_severe", "severe", "non_severe", "non_severe", 
+  "non_severe", "severe", "severe", "severe", "severe", "healthy", 
+  "non_severe", "healthy"
+)
+
+# Rename and ensure unique column names
+colnames(X2024_raw_data)[6:54] <- new_col_names
+colnames(X2024_raw_data) <- make.unique(colnames(X2024_raw_data))
+# Select numeric columns only
+num_data <- X2024_raw_data[, 6:54] %>% select_if(is.numeric)
+
+# Define column groups
+healthy_columns <- grep("^healthy", colnames(num_data), value = TRUE)
+non_severe_columns <- grep("^non_severe", colnames(num_data), value = TRUE)
+severe_columns <- grep("^severe", colnames(num_data), value = TRUE)
+
+# Combine numeric tibble back with original dataset
+raw_data_intensity <- cbind(X2024_raw_data[, 1:5], num_data)
+proteins <- raw_data_intensity %>%
+  filter(
+    !grepl(";", Protein.Group) &                # Remove rows with ";" in Protein.Group
+      !grepl(";", Protein.Ids) &                  # Remove rows with ";" in Protein.Ids
+      !grepl(";", Protein.Names) &                # Remove rows with ";" in Protein.Names
+      !grepl("KRT", Genes, ignore.case = TRUE)    # Remove rows where Genes contain "KRT"
+  ) %>%
+  distinct(Genes, .keep_all = TRUE)             # Remove duplicate rows based on Genes
+```
+
+```{r}
+# Ensure numeric columns are identified
+numeric_columns <- colnames(proteins)[sapply(proteins, is.numeric)]
+
+# Gaussian imputation function
+gaussian_impute_group <- function(group_data) {
+  group_data[] <- lapply(group_data, function(x) {
+    if (all(is.na(x))) {
+      x[is.na(x)] <- 0  # Replace all NAs with 0 if the entire column is NA
+    } else {
+      x[is.na(x)] <- mean(x, na.rm = TRUE)  # Replace NAs with column mean
+    }
+    return(x)
+  })
+  return(group_data)
+}
+
+# Apply Gaussian imputation to each group
+proteins[, healthy_columns] <- gaussian_impute_group(proteins[, healthy_columns, drop = FALSE])
+proteins[, non_severe_columns] <- gaussian_impute_group(proteins[, non_severe_columns, drop = FALSE])
+proteins[, severe_columns] <- gaussian_impute_group(proteins[, severe_columns, drop = FALSE])
+
+# Verify imputation
+print("Imputation completed for each group")
+
+# Count total NAs in numeric columns
+na_count <- sum(is.na(proteins[, numeric_columns, drop = FALSE]))
+print(paste("Total NAs in numeric columns:", na_count))  # Expect 0
+
+# Identify columns with remaining NAs
+col_na_counts <- colSums(is.na(proteins[, numeric_columns, drop = FALSE]))
+print(col_na_counts[col_na_counts > 0])
+```
+
+```{r}
+# Log2 transform numeric columns
+proteins[, numeric_columns] <- lapply(proteins[, numeric_columns, drop = FALSE], function(x) {
+  log2(x + 1)  # Add 1 to avoid log of zero
+})
+
+# Verify the transformation
+print("Log2 transformation completed for numeric columns.")
+head(proteins[, numeric_columns])
+```
+
+```{r}
+# Subset the data for "healthy" and "non_severe" groups
+healthy_data <- proteins[, grep("^healthy", colnames(proteins))]
+non_severe_data <- proteins[, grep("^non_severe", colnames(proteins))]
+
+# Initialize the results data frame
+results <- data.frame(
+  Protein = rownames(proteins), # Protein identifier
+  Mean_Healthy = numeric(nrow(proteins)), # Mean for healthy group
+  Mean_NonSevere = numeric(nrow(proteins)), # Mean for non-severe group
+  Fold_Change = numeric(nrow(proteins)), # Fold change
+  P_Value = numeric(nrow(proteins)), # P-value from t-test
+  Adjusted_PValue = numeric(nrow(proteins)), # Adjusted p-value (FDR)
+  Log10_PValue = numeric(nrow(proteins)), # -log10(p-value)
+  Log10_Adjusted_PValue = numeric(nrow(proteins)) # -log10(adjusted p-value)
+)
+
+# Calculate per-protein metrics
+for (i in seq_len(nrow(proteins))) {
+  # Extract values for the current protein
+  healthy_vals <- as.numeric(healthy_data[i, ])
+  non_severe_vals <- as.numeric(non_severe_data[i, ])
+  
+  # Calculate means
+  results$Mean_Healthy[i] <- mean(healthy_vals, na.rm = TRUE)
+  results$Mean_NonSevere[i] <- mean(non_severe_vals, na.rm = TRUE)
+  
+  # Calculate fold change (log2 space)
+  results$Fold_Change[i] <- results$Mean_Healthy[i] - results$Mean_NonSevere[i]
+  
+  # Perform t-test
+  t_test <- t.test(healthy_vals, non_severe_vals, alternative = "two.sided", var.equal = FALSE)
+  results$P_Value[i] <- t_test$p.value
+}
+
+# Adjust p-values using Benjamini-Hochberg method
+results$Adjusted_PValue <- p.adjust(results$P_Value, method = "BH")
+
+# Calculate -log10(p-value) and -log10(adjusted p-value)
+results$Log10_PValue <- -log10(results$P_Value)
+results$Log10_Adjusted_PValue <- -log10(results$Adjusted_PValue)
+
+# Display or save results
+head(results) # Preview the results
+```
+
+
+```{r}
+# Add regulation and fold change label columns to results
+results <- results %>%
+  mutate(
+    Regulation = case_when(
+      Fold_Change > 0.5 & Adjusted_PValue > 0.1 ~ "Up",   # Up-regulated
+      Fold_Change < -0.5 & Adjusted_PValue > 0.1 ~ "Down", # Down-regulated
+      TRUE ~ "Neutral"                                    # Neutral
+    ),
+    foldchangelabel = ifelse(Regulation != "Neutral", Protein, NA)
+  )
+
+# Create the volcano plot
+volcanoplot <- ggplot(results, aes(x = Fold_Change, y = -log10(Adjusted_PValue), color = Regulation, label = foldchangelabel)) +
+  geom_point() +
+  geom_text_repel(data = subset(results, !is.na(foldchangelabel)), max.overlaps = 10) +  # Label only selected proteins
+  xlim(-1, 1) +
+  ylim(0, max(-log10(results$Adjusted_PValue), na.rm = TRUE) + 0.05) +  # Dynamic y-axis limit
+  theme_minimal() +
+  scale_color_manual(values = c("Neutral" = "darkgrey", "Up" = "magenta", "Down" = "cyan")) +
+  geom_vline(xintercept = c(-0.5, 0.5), color = "black", linetype = "dashed") + # Thresholds for fold change
+  geom_hline(yintercept = -log10(0.05), color = "black", linetype = "dashed") + # Threshold for p-value
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 Adjusted P-value",
+    title = "Volcano Plot (BH Adjusted P-values)",
+    caption = "Run3"
+  ) +
+  theme(
+    text = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = "right"
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 6)))
+
+# Print the plot
+print(volcanoplot)
+```
+
+
