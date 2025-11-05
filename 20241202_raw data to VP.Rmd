@@ -1,6 +1,7 @@
 ---
 title: "20241202_PACS"
 output: html_notebook
+author: Ariane Neumann
 ---
 ```{r}
 # Load necessary library
@@ -8,7 +9,7 @@ library(dplyr)
 library(ggplot2)
 library(ggrepel)
 
-X2024_raw_data <- read_excel("Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Comparing R Excel and Perseus/2024 raw data.xlsx", sheet = "raw data 2024")
+X2024_raw_data <- read_excel("raw data.xlsx", sheet = "raw data 2024")
 # View the initial data set
 View(X2024_raw_data)
 ```
