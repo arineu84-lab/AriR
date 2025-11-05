@@ -16,7 +16,7 @@ p2 <- ggplot(pca_scores_with_group, aes(x=PC1, y=PC2))+
 plot(p2)
 
 library(readxl)
-data <- read_xlsx("C:/Users/med-an7/Work Folders/Desktop/Fredrik/MassSpec/MS runs/Runs 3 and 4 DIA-NN combined/Combined search/raw_data/valid_raw.xlsx")
+data <- read_xlsx("C:/Users/valid_raw.xlsx")
 head(data)
 
 ##
@@ -61,3 +61,4 @@ data_transposed <- na.omit(data_transposed)
 data_transposed[is.na(data_transposed)] <- colMeans(data_transposed, na.rm = TRUE)
 
 pca_result <- prcomp(data_transposed, scale. = TRUE)
+
