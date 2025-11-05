@@ -8,7 +8,7 @@ library("writexl")
 
 #Before importing the data, make sure to have the columns labelled uniform: Genes (or Proteins), pvalue and log2FC
 #Data should include Log2FC and -Log10pvalue (adjusted). Import data and the correct sheet (import 2, one is used to set the row names)
-res <- read_excel("Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Overview of data/processed_data/validproteins.xlsx",
+res <- read_excel("validproteins.xlsx",
                   sheet ="CvsPn",col_names = TRUE)
 
 #Set gene ID as rownames. Make sure that each rowname is unique
@@ -57,5 +57,5 @@ p4 <- ggplot(data=rer, aes(x=log2FC, y=log10pvalue, col=Regulation, label=rerlab
 p4 + labs(x = "Log2FC", y = "-Log10 q-value", title = "Volcano Plot", caption = "Healthy vs non_severe") + guides(color = guide_legend(override.aes = list(size=6)))
 
  #export the up- and downregulated proteins as defined at row 23
-write_xlsx(rer, "Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Overview of data/processed_data/VP_CvsPn.xlsx", col_names = TRUE)
+write_xlsx(rer, "VP_CvsPn.xlsx", col_names = TRUE)
 
