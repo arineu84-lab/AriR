@@ -1,6 +1,7 @@
 ---
-title: "20241203 PACS MS analysis"
+title: "20241203 MS analysis"
 output: html_notebook
+author: Ariane Neumann
 ---
 
 ```{r Libraries}
@@ -16,8 +17,8 @@ library(janitor)      # For cleaning up column names
 
 ```{r Load data}
 # Update file paths to be dynamic if necessary (e.g., use file.choose())
-protein_data_path <- "~/Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Comparing R Excel and Perseus/2024 raw data.xlsx"
-metadata_path <- "~/Library/CloudStorage/OneDrive-LundUniversity/Fredrik/MassSpec of PACS/Analysis/Comparing R Excel and Perseus/Sample code.xlsx"
+protein_data_path <- "raw data.xlsx"
+metadata_path <- "code.xlsx"
 
 # Load the datasets
 df <- read_excel(protein_data_path, sheet = "raw data 2024")
