@@ -53,7 +53,7 @@ pca_scores_with_group <- cbind(vert, pca_scores)
 
 # Create a vector for group assignments
 groups <- data.frame(Condition = rownames(vert),  # Assuming rownames in 'vert' are the conditions
-                     Group = c(rep("PACS", 46), rep("Control", 13)))
+                     Group = c(rep("Test", 46), rep("Control", 13)))
 
 # Combine the group information with PCA scores
 pca_scores_with_group <- cbind(groups, pca_scores)
@@ -61,12 +61,13 @@ pca_scores_with_group <- cbind(groups, pca_scores)
 # Ensure that 'Group' is treated as a factor
 pca_scores_with_group$Group <- as.factor(pca_scores_with_group$Group)
 
-# Create a PCA plot with different colors for PACS and Control
+# Create a PCA plot with different colors for Test and Control
 ggplot(pca_scores_with_group, aes(x = PC1, y = PC2, color = Group)) +
   geom_point(size = 4) +
   labs(title = "PCA Plot: PACS vs Control", x = "PC 1", y = "PC2") +
   theme_minimal() +
-  scale_color_manual(values = c("PACS" = "cyan", "Control" = "magenta"))  
+  scale_color_manual(values = c("Test" = "cyan", "Control" = "magenta"))  
+
 
 
 
