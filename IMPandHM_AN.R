@@ -7,7 +7,7 @@ library("writexl")
 library("pheatmap")
 library("dplyr")
 
-#Import dataset into Environment. This can be a file prepared in Excel. (I will try later, to get also a file where the missing values are not yet removed)
+#Import dataset into Environment. 
 read_excel("C:/Users/data.xlsx",
            sheet = "Sheet4",
            col_names = TRUE)
@@ -42,12 +42,12 @@ view(sdd)
 write_xlsx(sdd,"C:/Users/IMP.xlsx", col_names = TRUE)
 
 #Open the new "imputed" data set. Before check that the removed column 1 (gene/protein names) is added back into the file.
-#Create annotation for control or PACS
-#OBS! check that the annotation count matches the sample count. Like in monocytes, only 5 PACS exist, while in Tcells there are 6!
-annotation <- data.frame(Condition = factor(c("PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS","PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "PACS", "Control", "Control", "Control", "Control","Control", "Control","Control", "Control","Control", "Control", "Control")))
+#Create annotation 
+#OBS! check that the annotation count matches the sample count. 
+annotation <- data.frame(Condition = factor(c("Control", "Test","Control")))
 view(annotation)
 rownames(annotation) <- colnames(sdd)
-annotation_colors <- list(Condition = c("Control" = "red", "PACS" = "blue"))
+annotation_colors <- list(Condition = c("Control" = "red", "Test" = "blue"))
 heatmap_colors <- colorRampPalette(c("magenta", "cyan"))(n = 10)
 
 #Create the heatmap. Here I can now modify a bit more, based on what I would like the heatmap to look like.
