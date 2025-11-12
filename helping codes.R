@@ -1,7 +1,7 @@
-# Step 1: Check the structure of your data
+# Check the structure of your data
 str(vert)
 
-# Step 2: Convert list columns to character or another appropriate type
+# Convert list columns to character or another appropriate type
 vert <- lapply(vert, function(x) {
   if (is.list(x)) {
     return(as.character(x))  # Convert list to character
@@ -12,10 +12,10 @@ vert <- lapply(vert, function(x) {
 # Convert the list of columns back to a data frame
 vert <- as.data.frame(vert)
 
-# Step 3: Replace infinite values with NA
+# Replace infinite values with NA
 vert[sapply(vert, is.infinite)] <- NA
 
-# Step 4: Run missForest imputation
+# Run missForest imputation
 library(missForest)
 noi <- missForest::missForest(vert, verbose = TRUE)
 
@@ -41,11 +41,6 @@ vert[numeric_columns] <- lapply(vert[numeric_columns], function(x) {
 # Convert character columns to factors
 character_columns <- names(vert)[sapply(vert, is.character)]
 vert[character_columns] <- lapply(vert[character_columns], as.factor)
-
-# Run missForest imputation
-library(missForest)
-noi <- missForest::missForest(vert, verbose = TRUE)
-
 
 library(readxl)
 X20240826_IMP <- read_excel("C:/Users/IMP.xlsx", 
@@ -86,4 +81,5 @@ pheatmap(sdd, scale = "row",
          angle_col = 45,
          fontsize = 5,
          color = heatmap_colors)
+
 
