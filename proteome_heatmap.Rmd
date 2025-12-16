@@ -1,0 +1,102 @@
+---
+title: "Proteome heatmap"
+output:
+  html_document: default
+  word_document: default
+params:
+  data_path: ~/Desktop/Dataset.xlsx
+---
+Load all required packages before start of analysis
+```{r}
+library("readxl")
+library("tidyverse")
+library("openxlsx")
+library("missForest")
+library("writexl")
+library("pheatmap")
+library("dplyr")
+```
+
+Import and clean up of data
+The import can be done with the "Import Dataset" button on "Environment". 
+OBS! Be sure to select the correct sheet!!!
+```{r}
+# Load and rename the data set. This name can be replaced with anything that comes to mind, there is no function here.
+data_set <- read_excel("~/Desktop/Dataset.xlsx",
+           sheet = "human") # replace with "Strep" here for the streptococcal sheet here
+
+#Set UniProt ID or gene name as row names. This changes that column 1 disappears and the gene or protein names are listed. 
+# For a tibble created here, only one name column is needed. 
+set_rowname <- data_set%>%select(-PG.Genes)
+rownames(set_rowname) <- data_set$PG.Genes
+
+#transpose the data
+transposed_data <- t(set_rowname)
+#view(transposed_data)
+```
+
+Prepare and run imputation (If this has not been done manually in excel, by replacing missing values with " " or "0")
+```{r}
+#MissForest: will impute missing values 
+noi <- missForest::missForest(as.matrix(transposed_data),verbose = T)
+noir <- noi$ximp
+
+#Turn the data back to a data frame
+sd <- t(noir)
+sdd <- data.frame(sd)
+```
+```{r}
+#export the imputed data as an excel file.
+# OBS! the first column with gene or protein names is missing now. Needs to be added again manually!
+write_xlsx(sdd, "/Users/med-an7/Desktop/SGenes_IMP.xlsx", col_names = TRUE) # replace "H" with "S" here for strep instead of human data
+```
+
+The next step needs to be done manually in excel. Open the newly imputed file and the original old file. Copy the first column from the old file (gene names) and insert it in column A in the new file. Save and close new file. Then import the new file into R environment.
+```{r}
+# Import updated dataset
+Proteome_IMP <- read_excel("/Users/med-an7/Desktop/SGenes_IMP.xlsx")
+
+# Remove non-numeric columns
+numeric_data <- Proteome_IMP[, sapply(Proteome_IMP, is.numeric)]
+# Convert to matrix
+numeric_matrix <- as.matrix(numeric_data)
+
+# Remove rows with zero standard deviation (i.e. constant values)
+row_sd <- apply(numeric_matrix, 1, sd)
+numeric_matrix_filtered <- numeric_matrix[row_sd != 0, ]
+```
+
+For the clustering, need to create an annotation
+```{r}
+#Create annotation for different sample types, e.g. Ctr
+#OBS! check that the annotation count matches the sample count.
+annotation <- data.frame(Condition = factor(c("Ctr_0h", "Ctr_0h",	"Ctr_0h",	"Ctr_24h", 
+                                              "Ctr_24h",	"Ctr_24h")))
+# view(annotation)
+rownames(annotation) <- colnames(numeric_matrix_filtered)
+# run colors() to decide on available colors in R
+annotation_colors <- list(
+  Condition = c(
+    "Ctr_0h" = "thistle", "Ctr_24h" = "thistle4"))
+heatmap_colors <- colorRampPalette(c("forestgreen", "darkblue"))(n = 10)
+```
+
+Plot heat map
+```{r}
+print(pheatmap(numeric_matrix_filtered, scale = "row", 
+         cluster_rows = TRUE,
+         cluster_cols = F,
+         clustering_method = "ward.D2",
+         clustering_distance_rows = "euclidean", 
+         clustering_distance_cols = "euclidean",
+         annotation_col = annotation,
+         annotation_colors = annotation_colors,
+         show_rownames = F,
+         show_colnames = F,
+         treeheight_row = 0, 
+         angle_col = "45",
+         fontsize = 5,
+         color = heatmap_colors))
+```
+
+
